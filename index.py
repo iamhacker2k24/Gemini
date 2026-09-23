@@ -1036,9 +1036,11 @@ def index():
 @app.route("/api/register", methods=["POST"])
 def api_register():
     data = request.get_json() or {}
-    email = data.get("email", "").strip()
+    email = data.get("email", "").strip().lower()
     if not email:
         return jsonify({"success": False, "error": "Email address is required."}), 400
+    if not email.endswith("@gmail.com"):
+        return jsonify({"success": False, "error": "Only @gmail.com email addresses are allowed."}), 400
 
     session_id = uuid.uuid4().hex
     session = create_session()

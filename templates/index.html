@@ -762,9 +762,11 @@
         <div class="step-section active" id="section-step-1">
             <form id="form-email" onsubmit="handleSendOtp(event)">
                 <div class="input-group">
-                    <label class="input-label" for="user-email">Enter your Gmail / Email address</label>
+                    <label class="input-label" for="user-email">Enter your Gmail Address (@gmail.com only)</label>
                     <div class="input-wrapper">
                         <input type="email" id="user-email" class="input-field" placeholder="yourname@gmail.com"
+                            pattern="^[a-zA-Z0-9._%+-]+@gmail\.com$"
+                            title="Only @gmail.com email addresses are allowed."
                             required autocomplete="email">
                     </div>
                 </div>
@@ -946,8 +948,17 @@
             hideAlert();
 
             const emailInput = document.getElementById('user-email');
-            const email = emailInput.value.trim();
+            const email = emailInput.value.trim().toLowerCase();
             if (!email) return;
+
+            // Enforce Gmail only validation
+            const gmailPattern = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
+            if (!gmailPattern.test(email)) {
+                showAlert('Only @gmail.com email addresses are accepted. Please enter a valid Gmail address.', 'error');
+                log('Blocked input: Non-Gmail email entered (' + email + ')', 'error');
+                emailInput.focus();
+                return;
+            }
 
             const btn = document.getElementById('btn-send-otp');
             const spinner = document.getElementById('spinner-step-1');
