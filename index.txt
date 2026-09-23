@@ -1,0 +1,5 @@
+just implet one things like craetea firts nsme last name and passeord bucket  and phone number  need eah time to be different must  for clg need to call , country code should be +91 must , for location id you neet to cal this as aget request "
+https://internshala.com/autocomplete/location/kolkata" like i sue kolkata you will get id but try to random id and names shold need to look like indians name , fo clg you neeed to call this "
+https://internshala.com/autocomplete/college/IIT" as get request and try to cohsoe differnet clg name in india lots of clg ok but try to chose IIts ok for "stream  call this api "https://internshala.com/autocomplete/stream/cse" but schose alawaya cse ok must alos if you want you can hard code as computer sceince and enginnering and year need to chose 2025 or 2026 and end year 2029 or 2030 , for youre prefernce you need to call "https://internshala.com/user_preference/load_category_recommendation " this and need to chose alswya computer b-tect releated preference ok 
+
+do this all the stfs properly ok 

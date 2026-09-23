@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Gemini 12-Months Trial Claimer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #090d16;
+            --bg-card: rgba(17, 24, 39, 0.75);
+            --bg-card-border: rgba(255, 255, 255, 0.08);
+            --primary: #6366f1;
+            --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+            --accent-cyan: #06b6d4;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Ambient Glow Background */
+        .ambient-glow {
+            position: fixed;
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.18;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .glow-1 {
+            background: #6366f1;
+            top: -100px;
+            left: -100px;
+        }
+        .glow-2 {
+            background: #d946ef;
+            bottom: -150px;
+            right: -100px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 540px;
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--bg-card-border);
+            border-radius: 24px;
+            padding: 36px 32px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+            position: relative;
+            z-index: 10;
+        }
+
+        .brand-header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .gemini-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(99, 102, 241, 0.12);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            color: #a5b4fc;
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            margin-bottom: 14px;
+            text-transform: uppercase;
+        }
+
+        .gemini-badge svg {
+            width: 14px;
+            height: 14px;
+            fill: #a5b4fc;
+        }
+
+        .brand-title {
+            font-size: 1.85rem;
+            font-weight: 800;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 6px;
+        }
+
+        .brand-subtitle {
+            color: var(--text-muted);
+            font-size: 0.92rem;
+        }
+
+        /* Step Indicator */
+        .steps-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .steps-bar::before {
+            content: '';
+            position: absolute;
+            top: 14px;
+            left: 20px;
+            right: 20px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            z-index: 1;
+        }
+
+        .step-item {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .step-circle {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #1f2937;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            transition: all 0.3s ease;
+        }
+
+        .step-label {
+            font-size: 0.72rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .step-item.active .step-circle {
+            background: var(--primary);
+            border-color: #a5b4fc;
+            color: #fff;
+            box-shadow: 0 0 16px rgba(99, 102, 241, 0.6);
+        }
+
+        .step-item.active .step-label {
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .step-item.completed .step-circle {
+            background: var(--success);
+            border-color: var(--success);
+            color: #fff;
+        }
+
+        /* Forms */
+        .step-section {
+            display: none;
+        }
+        .step-section.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #e5e7eb;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 14px 16px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 14px;
+            color: #fff;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .input-field:focus {
+            border-color: #818cf8;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+            background: rgba(15, 23, 42, 0.85);
+        }
+
+        .otp-input {
+            letter-spacing: 0.4em;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 15px;
+            background: var(--primary-gradient);
+            border: none;
+            border-radius: 14px;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-submit:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px -5px rgba(99, 102, 241, 0.6);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Profile Preview Box */
+        .profile-card {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 22px;
+            font-size: 0.83rem;
+        }
+
+        .profile-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #a5b4fc;
+        }
+
+        .profile-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            color: #cbd5e1;
+        }
+
+        .profile-label {
+            color: #94a3b8;
+        }
+
+        /* Alerts */
+        .alert-box {
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            margin-bottom: 18px;
+            display: none;
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+            display: block;
+        }
+
+        .alert-info {
+            background: rgba(6, 182, 212, 0.12);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            color: #67e8f9;
+            display: block;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #6ee7b7;
+            display: block;
+        }
+
+        /* Resend Timer */
+        .resend-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 14px;
+            font-size: 0.85rem;
+        }
+
+        .resend-btn {
+            background: none;
+            border: none;
+            color: #818cf8;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .resend-btn:disabled {
+            color: #6b7280;
+            cursor: not-allowed;
+            text-decoration: none;
+        }
+
+        /* Success Offer Box */
+        .success-box {
+            text-align: center;
+            padding: 10px 0;
+        }
+
+        .success-icon {
+            width: 64px;
+            height: 64px;
+            background: rgba(16, 185, 129, 0.15);
+            border: 2px solid var(--success);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            color: var(--success);
+            font-size: 28px;
+        }
+
+        .offer-url-card {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px dashed rgba(99, 102, 241, 0.4);
+            border-radius: 14px;
+            padding: 16px;
+            margin: 20px 0;
+            word-break: break-all;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: #818cf8;
+            user-select: all;
+        }
+
+        .btn-claim {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.4);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+            border-radius: 14px;
+            color: #fff;
+            font-weight: 700;
+            font-size: 1.05rem;
+            margin-bottom: 12px;
+            transition: all 0.25s ease;
+        }
+
+        .btn-claim:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px -5px rgba(16, 185, 129, 0.6);
+        }
+
+        .btn-copy {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #e2e8f0;
+            padding: 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: 600;
+            font-size: 0.88rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-copy:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Terminal Console Logs */
+        .console-box {
+            margin-top: 24px;
+            background: rgba(10, 15, 26, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 14px;
+            overflow: hidden;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.74rem;
+        }
+
+        .console-header {
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+
+        .console-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+            display: inline-block;
+        }
+        .console-dot:nth-child(2) { background: #f59e0b; }
+        .console-dot:nth-child(3) { background: #10b981; }
+
+        .console-body {
+            padding: 10px 12px;
+            max-height: 120px;
+            overflow-y: auto;
+            color: #94a3b8;
+            line-height: 1.5;
+        }
+
+        .log-entry {
+            margin-bottom: 3px;
+        }
+        .log-success { color: #34d399; }
+        .log-error { color: #f87171; }
+        .log-info { color: #60a5fa; }
+    </style>
+</head>
+<body>
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+
+    <div class="container">
+        <!-- Brand Header -->
+        <div class="brand-header">
+            <div class="gemini-badge">
+                <svg viewBox="0 0 24 24"><path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/></svg>
+                Google Gemini AI Plus
+            </div>
+            <h1 class="brand-title">12-Month Trial Claimer</h1>
+            <p class="brand-subtitle">Automated Internshala Onboarding &amp; Offer Claim</p>
+        </div>
+
+        <!-- Step Indicator -->
+        <div class="steps-bar">
+            <div class="step-item active" id="indicator-step-1">
+                <div class="step-circle">1</div>
+                <div class="step-label">Email</div>
+            </div>
+            <div class="step-item" id="indicator-step-2">
+                <div class="step-circle">2</div>
+                <div class="step-label">OTP</div>
+            </div>
+            <div class="step-item" id="indicator-step-3">
+                <div class="step-circle">3</div>
+                <div class="step-label">Claim</div>
+            </div>
+        </div>
+
+        <!-- Alert Notification Box -->
+        <div id="alert-box" class="alert-box"></div>
+
+        <!-- STEP 1: Enter Email -->
+        <div class="step-section active" id="section-step-1">
+            <form id="form-email" onsubmit="handleSendOtp(event)">
+                <div class="input-group">
+                    <label class="input-label" for="user-email">Enter your Gmail / Email address</label>
+                    <div class="input-wrapper">
+                        <input 
+                            type="email" 
+                            id="user-email" 
+                            class="input-field" 
+                            placeholder="yourname@gmail.com" 
+                            required 
+                            autocomplete="email"
+                        >
+                    </div>
+                </div>
+                <button type="submit" class="btn-submit" id="btn-send-otp">
+                    <span>Send Verification OTP</span>
+                    <div class="spinner" id="spinner-step-1"></div>
+                </button>
+            </form>
+        </div>
+
+        <!-- STEP 2: Enter OTP -->
+        <div class="step-section" id="section-step-2">
+            <!-- Dynamic Generated Profile Preview -->
+            <div class="profile-card" id="profile-preview">
+                <div class="profile-header">
+                    <span>Generated Student Profile</span>
+                    <span id="profile-batch" style="color: #6ee7b7;">2026-2030</span>
+                </div>
+                <div class="profile-row">
+                    <span class="profile-label">Name:</span>
+                    <span id="profile-name">Loading...</span>
+                </div>
+                <div class="profile-row">
+                    <span class="profile-label">College:</span>
+                    <span id="profile-college">IIT Kharagpur</span>
+                </div>
+                <div class="profile-row">
+                    <span class="profile-label">Stream:</span>
+                    <span id="profile-stream">Computer Science &amp; Engineering</span>
+                </div>
+                <div class="profile-row">
+                    <span class="profile-label">Location:</span>
+                    <span id="profile-location">Kolkata</span>
+                </div>
+            </div>
+
+            <form id="form-otp" onsubmit="handleVerifyOtp(event)">
+                <div class="input-group">
+                    <label class="input-label" for="user-otp">Enter 6-digit OTP received in email</label>
+                    <div class="input-wrapper">
+                        <input 
+                            type="text" 
+                            id="user-otp" 
+                            class="input-field otp-input" 
+                            placeholder="······" 
+                            maxlength="6" 
+                            required 
+                            autocomplete="one-time-code"
+                        >
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-submit" id="btn-verify-otp">
+                    <span>Verify &amp; Claim 12-Month Trial</span>
+                    <div class="spinner" id="spinner-step-2"></div>
+                </button>
+            </form>
+
+            <div class="resend-bar">
+                <span id="timer-text" style="color: var(--text-muted);">Resend in <b id="countdown">30</b>s</span>
+                <button class="resend-btn" id="btn-resend" onclick="handleResendOtp()" disabled>Resend OTP</button>
+            </div>
+        </div>
+
+        <!-- STEP 3: Success Screen with Offer URL -->
+        <div class="step-section" id="section-step-3">
+            <div class="success-box">
+                <div class="success-icon">✓</div>
+                <h2 style="font-size: 1.4rem; font-weight: 800; color: #6ee7b7; margin-bottom: 6px;">Offer Claimed!</h2>
+                <p style="color: #94a3b8; font-size: 0.88rem;">Your 12-Month Google Gemini AI Plus trial offer is ready to redeem.</p>
+                
+                <div class="offer-url-card" id="offer-url-text">https://one.google.com/offer/...</div>
+
+                <a href="#" target="_blank" class="btn-claim" id="btn-open-offer">
+                    <span>Redeem 12-Month Free Trial</span>
+                    <svg style="width:18px;height:18px;fill:currentColor;margin-left:6px;" viewBox="0 0 24 24"><path d="M14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3m-2 16H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7z"/></svg>
+                </a>
+
+                <button class="btn-copy" onclick="copyOfferUrl()">Copy Offer Link</button>
+            </div>
+        </div>
+
+        <!-- Real-time Activity Console -->
+        <div class="console-box">
+            <div class="console-header">
+                <span class="console-dot"></span>
+                <span class="console-dot"></span>
+                <span class="console-dot"></span>
+                <span style="margin-left: 8px;">Automation Activity</span>
+            </div>
+            <div class="console-body" id="console-logs">
+                <div class="log-entry log-info">[System] Ready for input. Enter email to begin.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentSessionId = null;
+        let countdownTimer = null;
+        let timeLeft = 30;
+
+        function log(message, type = 'info') {
+            const consoleLogs = document.getElementById('console-logs');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            const time = new Date().toLocaleTimeString();
+            entry.innerText = `[${time}] ${message}`;
+            consoleLogs.appendChild(entry);
+            consoleLogs.scrollTop = consoleLogs.scrollHeight;
+        }
+
+        function showAlert(msg, type = 'error') {
+            const box = document.getElementById('alert-box');
+            box.className = `alert-box alert-${type}`;
+            box.innerText = msg;
+            box.style.display = 'block';
+        }
+
+        function hideAlert() {
+            const box = document.getElementById('alert-box');
+            box.style.display = 'none';
+        }
+
+        function setStep(stepNum) {
+            document.querySelectorAll('.step-section').forEach(sec => sec.classList.remove('active'));
+            document.querySelectorAll('.step-item').forEach((item, idx) => {
+                item.classList.remove('active');
+                if (idx < stepNum - 1) {
+                    item.classList.add('completed');
+                } else if (idx === stepNum - 1) {
+                    item.classList.add('active');
+                }
+            });
+            document.getElementById(`section-step-${stepNum}`).classList.add('active');
+        }
+
+        function startResendTimer() {
+            clearInterval(countdownTimer);
+            timeLeft = 30;
+            const btnResend = document.getElementById('btn-resend');
+            const timerText = document.getElementById('timer-text');
+            const countdownEl = document.getElementById('countdown');
+            
+            btnResend.disabled = true;
+            timerText.style.display = 'inline';
+            countdownEl.innerText = timeLeft;
+
+            countdownTimer = setInterval(() => {
+                timeLeft--;
+                countdownEl.innerText = timeLeft;
+                if (timeLeft <= 0) {
+                    clearInterval(countdownTimer);
+                    timerText.style.display = 'none';
+                    btnResend.disabled = false;
+                }
+            }, 1000);
+        }
+
+        // STEP 1: Handle Send OTP
+        async function handleSendOtp(event) {
+            event.preventDefault();
+            hideAlert();
+
+            const emailInput = document.getElementById('user-email');
+            const email = emailInput.value.trim();
+            if (!email) return;
+
+            const btn = document.getElementById('btn-send-otp');
+            const spinner = document.getElementById('spinner-step-1');
+            btn.disabled = true;
+            spinner.style.display = 'inline-block';
+
+            log(`Initiating registration for: ${email}`, 'info');
+
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    currentSessionId = data.session_id;
+                    log(`Session established (${currentSessionId.substring(0, 8)}...)`, 'success');
+                    log(`Generated profile: ${data.profile.first_name} ${data.profile.last_name} (${data.profile.college})`, 'info');
+
+                    // Populate Profile Card
+                    document.getElementById('profile-name').innerText = `${data.profile.first_name} ${data.profile.last_name}`;
+                    document.getElementById('profile-college').innerText = data.profile.college;
+                    document.getElementById('profile-stream').innerText = data.profile.stream;
+                    document.getElementById('profile-location').innerText = data.profile.current_city_name;
+                    document.getElementById('profile-batch').innerText = `${data.profile.start_year}-${data.profile.end_year}`;
+
+                    showAlert(data.message || 'OTP sent! Please check your email inbox.', 'info');
+                    setStep(2);
+                    startResendTimer();
+                    document.getElementById('user-otp').focus();
+                } else {
+                    showAlert(data.error || 'Failed to send OTP. Please check the logs.', 'error');
+                    log(`Registration notice: ${data.error}`, 'error');
+                }
+            } catch (err) {
+                showAlert('Network error connecting to backend.', 'error');
+                log(`Error: ${err.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                spinner.style.display = 'none';
+            }
+        }
+
+        // STEP 2: Handle Verify OTP
+        async function handleVerifyOtp(event) {
+            event.preventDefault();
+            hideAlert();
+
+            const otpInput = document.getElementById('user-otp');
+            const otp = otpInput.value.trim();
+            if (otp.length !== 6) {
+                showAlert('Please enter a valid 6-digit OTP.', 'error');
+                otpInput.focus();
+                return;
+            }
+
+            const btn = document.getElementById('btn-verify-otp');
+            const spinner = document.getElementById('spinner-step-2');
+            btn.disabled = true;
+            spinner.style.display = 'inline-block';
+
+            log(`Submitting OTP ${otp} for verification...`, 'info');
+
+            try {
+                const response = await fetch('/api/verify_otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: currentSessionId,
+                        otp: otp
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success && data.offer_url) {
+                    log('OTP verified successfully! Account confirmed.', 'success');
+                    log('Personal details & preferences updated.', 'success');
+                    log(`Google One Trial Claimed: ${data.offer_url}`, 'success');
+
+                    // Set Step 3
+                    document.getElementById('offer-url-text').innerText = data.offer_url;
+                    document.getElementById('btn-open-offer').href = data.offer_url;
+                    setStep(3);
+                } else {
+                    // WRONG OTP HANDLER: Allow user to re-enter without resetting session!
+                    const errorMsg = data.error || 'Incorrect OTP or verification failed. Please try again.';
+                    showAlert(errorMsg, 'error');
+                    log(`Verification failed: ${errorMsg}`, 'error');
+                    otpInput.value = '';
+                    otpInput.focus();
+                }
+            } catch (err) {
+                showAlert('Network error during verification.', 'error');
+                log(`Error: ${err.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                spinner.style.display = 'none';
+            }
+        }
+
+        // Handle Resend OTP
+        async function handleResendOtp() {
+            if (!currentSessionId) return;
+            hideAlert();
+            log('Requesting OTP resend...', 'info');
+
+            try {
+                const response = await fetch('/api/resend_otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: currentSessionId })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    showAlert(data.message || 'New OTP resent to your email.', 'info');
+                    log('OTP resent successfully!', 'success');
+                    startResendTimer();
+                } else {
+                    showAlert(data.error || 'Could not resend OTP.', 'error');
+                    log(`Resend failed: ${data.error}`, 'error');
+                }
+            } catch (err) {
+                showAlert('Failed to resend OTP.', 'error');
+            }
+        }
+
+        function copyOfferUrl() {
+            const url = document.getElementById('offer-url-text').innerText;
+            navigator.clipboard.writeText(url).then(() => {
+                showAlert('Google One offer link copied to clipboard!', 'success');
+            });
+        }
+    </script>
+</body>
+</html>
