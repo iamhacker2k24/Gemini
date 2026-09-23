@@ -1025,5 +1025,155 @@ def main():
                 pass
 
 
+# ============================================================
+# FLASK WEB APPLICATION ROUTES (FOR RENDER & WEB HOSTING)
+# ============================================================
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+@app.route("/api/register", methods=["POST"])
+def api_register():
+    data = request.get_json() or {}
+    email = data.get("email", "").strip()
+    if not email:
+        return jsonify({"success": False, "error": "Email address is required."}), 400
+
+    session_id = uuid.uuid4().hex
+    session = create_session()
+    profile = build_dynamic_student_profile(session)
+
+    reg_resp = register_account(session, email, profile=profile)
+    if reg_resp is None:
+        return jsonify({"success": False, "error": "Failed to connect to Internshala. Please check server network/proxy."}), 500
+
+    try:
+        reg_json = reg_resp.json()
+    except ValueError:
+        return jsonify({"success": False, "error": "Invalid response received from Internshala."}), 500
+
+    is_success = reg_json.get("success")
+    error_code = str(reg_json.get("errorCode", ""))
+    error_thrown = str(reg_json.get("errorThrown", ""))
+
+    message = "OTP has been sent to your email address."
+
+    if is_success is True:
+        message = reg_json.get("successMsg") or "Registration successful! OTP sent to your email."
+    elif (
+        "registered but not yet verified" in error_code
+        or "registered but not yet verified" in error_thrown
+        or "already been sent to you thrice" in error_code
+        or "already been sent to you thrice" in error_thrown
+    ):
+        if "already been sent to you thrice" in error_code or "already been sent to you thrice" in error_thrown:
+            message = "This email is registered. Verification emails were already sent thrice. Please enter the OTP from your inbox/spam folder."
+        else:
+            resend_email_otp(session, email)
+            message = "Account is registered but unverified. New OTP has been sent to your email."
+    else:
+        err = error_thrown or error_code or "Registration failed."
+        return jsonify({"success": False, "error": err}), 400
+
+    # Store active session flow in memory for OTP verification
+    ACTIVE_SESSIONS[session_id] = {
+        "session": session,
+        "email": email,
+        "profile": profile
+    }
+
+    return jsonify({
+        "success": True,
+        "session_id": session_id,
+        "profile": profile,
+        "message": message
+    })
+
+
+@app.route("/api/verify_otp", methods=["POST"])
+def api_verify_otp():
+    data = request.get_json() or {}
+    session_id = data.get("session_id", "").strip()
+    otp = data.get("otp", "").strip()
+
+    if not session_id or session_id not in ACTIVE_SESSIONS:
+        return jsonify({"success": False, "error": "Session expired or invalid. Please refresh the page and enter email again."}), 400
+
+    if not otp or len(otp) != 6:
+        return jsonify({"success": False, "error": "Please enter a valid 6-digit OTP."}), 400
+
+    flow_state = ACTIVE_SESSIONS[session_id]
+    session = flow_state["session"]
+    email = flow_state["email"]
+    profile = flow_state["profile"]
+
+    # Step A: Verify OTP
+    result = verify_email_otp(session, email, otp=otp)
+    if result is None:
+        return jsonify({"success": False, "error": "Network error while submitting OTP."}), 500
+
+    if result.get("success") is not True:
+        # WRONG OTP: Keep session active so user can re-enter OTP without losing progress!
+        err = result.get("errorThrown")
+        if isinstance(err, dict):
+            err_msg = ", ".join(f"{k}: {v}" for k, v in err.items())
+        else:
+            err_msg = str(err or result.get("errorCode") or "Invalid or expired OTP. Please try again.")
+        return jsonify({"success": False, "error": err_msg})
+
+    # Step B: OTP is verified! Complete onboarding & claim offer
+    try:
+        update_personal_details(session, profile=profile)
+        submit_user_preference_categories(session)
+        submit_user_preference_others(session, location_id=profile.get("current_city_location_id"))
+        offer_url = claim_google_gemini_offer(session)
+
+        if offer_url:
+            return jsonify({
+                "success": True,
+                "offer_url": offer_url,
+                "message": "Google Gemini 12-Month Free Trial claimed successfully!"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Account verified, but offer link could not be claimed. Please check eligibility."
+            })
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error during onboarding: {str(e)}"}), 500
+
+
+@app.route("/api/resend_otp", methods=["POST"])
+def api_resend_otp():
+    data = request.get_json() or {}
+    session_id = data.get("session_id", "").strip()
+
+    if not session_id or session_id not in ACTIVE_SESSIONS:
+        return jsonify({"success": False, "error": "Session expired or invalid."}), 400
+
+    flow_state = ACTIVE_SESSIONS[session_id]
+    session = flow_state["session"]
+    email = flow_state["email"]
+
+    res = resend_email_otp(session, email)
+    if res and res.get("success") is True:
+        return jsonify({"success": True, "message": "A new OTP has been sent to your email inbox."})
+    else:
+        err = (res and (res.get("errorThrown") or res.get("errorCode"))) or "Unable to resend OTP at this time."
+        return jsonify({"success": False, "error": err})
+
+
 if __name__ == "__main__":
-    main()
+    # If command-line arguments are passed, run CLI mode
+    if len(sys.argv) > 1 and ("@" in sys.argv[1] or sys.argv[1] in ["-c", "--cli"]):
+        main()
+    else:
+        # Default to web server mode (Render, cloud host, or local browser)
+        port = int(os.environ.get("PORT", 5000))
+        print("\n" + "=" * 55)
+        print("🚀 STARTING GOOGLE GEMINI TRIAL CLAIMER WEB APP")
+        print(f"📡 Web server running on: http://0.0.0.0:{port}")
+        print(f"🌐 Access locally at:      http://localhost:{port}")
+        print("=" * 55 + "\n")
+        app.run(host="0.0.0.0", port=port, debug=False)
