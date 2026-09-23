@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Google Gemini 12-Months Trial Claimer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
     <style>
         :root {
             --bg-dark: #090d16;
@@ -53,11 +56,13 @@
             pointer-events: none;
             z-index: 0;
         }
+
         .glow-1 {
             background: #6366f1;
             top: -100px;
             left: -100px;
         }
+
         .glow-2 {
             background: #d946ef;
             bottom: -150px;
@@ -191,14 +196,22 @@
         .step-section {
             display: none;
         }
+
         .step-section.active {
             display: block;
             animation: fadeIn 0.3s ease;
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .input-group {
@@ -438,7 +451,9 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         /* Terminal Console Logs */
@@ -469,8 +484,14 @@
             background: #ef4444;
             display: inline-block;
         }
-        .console-dot:nth-child(2) { background: #f59e0b; }
-        .console-dot:nth-child(3) { background: #10b981; }
+
+        .console-dot:nth-child(2) {
+            background: #f59e0b;
+        }
+
+        .console-dot:nth-child(3) {
+            background: #10b981;
+        }
 
         .console-body {
             padding: 10px 12px;
@@ -483,21 +504,236 @@
         .log-entry {
             margin-bottom: 3px;
         }
-        .log-success { color: #34d399; }
-        .log-error { color: #f87171; }
-        .log-info { color: #60a5fa; }
+
+        .log-success {
+            color: #34d399;
+        }
+
+        .log-error {
+            color: #f87171;
+        }
+
+        .log-info {
+            color: #60a5fa;
+        }
+
+        /* ================= PAGE PRELOADER ================= */
+        #page-loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #060912;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 999999;
+            transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.6s;
+        }
+
+        #page-loader.fade-out {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .loader-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 30px;
+        }
+
+        .loader-ring {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: 3.5px solid rgba(99, 102, 241, 0.15);
+            border-top: 3.5px solid #8b5cf6;
+            border-right: 3.5px solid #ec4899;
+            animation: spin 0.85s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+            margin-bottom: 24px;
+            box-shadow: 0 0 25px rgba(139, 92, 246, 0.4);
+        }
+
+        .loader-dev-text {
+            font-size: 1.45rem;
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            background: linear-gradient(135deg, #a5b4fc 0%, #c084fc 45%, #f472b6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+            animation: pulseText 2s ease-in-out infinite;
+        }
+
+        .loader-sub {
+            font-size: 0.88rem;
+            color: #94a3b8;
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        @keyframes pulseText {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.88;
+                transform: scale(0.98);
+            }
+        }
+
+        /* ================= HEADER CREATOR BADGE ================= */
+        .header-badges {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+
+        .dev-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: rgba(236, 72, 153, 0.12);
+            border: 1px solid rgba(236, 72, 153, 0.35);
+            color: #f472b6;
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+        }
+
+        .dev-glow-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #ec4899;
+            box-shadow: 0 0 8px #ec4899;
+            animation: pulseGlow 1.5s infinite;
+        }
+
+        @keyframes pulseGlow {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.4;
+                transform: scale(0.8);
+            }
+        }
+
+        /* ================= FOOTER WITH LOVE ================= */
+        .app-footer {
+            margin-top: 26px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .footer-love-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(244, 63, 94, 0.1);
+            border: 1px solid rgba(244, 63, 94, 0.25);
+            padding: 8px 18px;
+            border-radius: 9999px;
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #fb7185;
+            letter-spacing: 0.02em;
+            box-shadow: 0 4px 14px rgba(244, 63, 94, 0.15);
+        }
+
+        .heart-pulse {
+            display: inline-block;
+            animation: heartBeat 1.3s ease-in-out infinite;
+            font-size: 1.05rem;
+        }
+
+        @keyframes heartBeat {
+            0% {
+                transform: scale(1);
+            }
+
+            14% {
+                transform: scale(1.25);
+            }
+
+            28% {
+                transform: scale(1);
+            }
+
+            42% {
+                transform: scale(1.25);
+            }
+
+            70% {
+                transform: scale(1);
+            }
+        }
+
+        .footer-signature {
+            font-size: 0.74rem;
+            color: #64748b;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
     </style>
 </head>
+
 <body>
+    <!-- Full-screen Loading Splash Screen -->
+    <div id="page-loader">
+        <div class="loader-content">
+            <div class="loader-ring"></div>
+            <div class="loader-dev-text">This website created by Dev</div>
+            <div class="loader-sub">
+                <span>Initializing Gemini Automation</span>
+                <span class="loading-dots">...</span>
+            </div>
+        </div>
+    </div>
+
     <div class="ambient-glow glow-1"></div>
     <div class="ambient-glow glow-2"></div>
 
     <div class="container">
         <!-- Brand Header -->
         <div class="brand-header">
-            <div class="gemini-badge">
-                <svg viewBox="0 0 24 24"><path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/></svg>
-                Google Gemini AI Plus
+            <div class="header-badges">
+                <div class="gemini-badge">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" />
+                    </svg>
+                    Google Gemini AI Plus
+                </div>
+                <div class="dev-badge">
+                    <span class="dev-glow-dot"></span>
+                    Created by <strong>Dev</strong>
+                </div>
             </div>
             <h1 class="brand-title">12-Month Trial Claimer</h1>
             <p class="brand-subtitle">Automated Internshala Onboarding &amp; Offer Claim</p>
@@ -528,14 +764,8 @@
                 <div class="input-group">
                     <label class="input-label" for="user-email">Enter your Gmail / Email address</label>
                     <div class="input-wrapper">
-                        <input 
-                            type="email" 
-                            id="user-email" 
-                            class="input-field" 
-                            placeholder="yourname@gmail.com" 
-                            required 
-                            autocomplete="email"
-                        >
+                        <input type="email" id="user-email" class="input-field" placeholder="yourname@gmail.com"
+                            required autocomplete="email">
                     </div>
                 </div>
                 <button type="submit" class="btn-submit" id="btn-send-otp">
@@ -575,15 +805,8 @@
                 <div class="input-group">
                     <label class="input-label" for="user-otp">Enter 6-digit OTP received in email</label>
                     <div class="input-wrapper">
-                        <input 
-                            type="text" 
-                            id="user-otp" 
-                            class="input-field otp-input" 
-                            placeholder="······" 
-                            maxlength="6" 
-                            required 
-                            autocomplete="one-time-code"
-                        >
+                        <input type="text" id="user-otp" class="input-field otp-input" placeholder="······"
+                            maxlength="6" required autocomplete="one-time-code">
                     </div>
                 </div>
 
@@ -604,13 +827,17 @@
             <div class="success-box">
                 <div class="success-icon">✓</div>
                 <h2 style="font-size: 1.4rem; font-weight: 800; color: #6ee7b7; margin-bottom: 6px;">Offer Claimed!</h2>
-                <p style="color: #94a3b8; font-size: 0.88rem;">Your 12-Month Google Gemini AI Plus trial offer is ready to redeem.</p>
-                
+                <p style="color: #94a3b8; font-size: 0.88rem;">Your 12-Month Google Gemini AI Plus trial offer is ready
+                    to redeem.</p>
+
                 <div class="offer-url-card" id="offer-url-text">https://one.google.com/offer/...</div>
 
                 <a href="#" target="_blank" class="btn-claim" id="btn-open-offer">
                     <span>Redeem 12-Month Free Trial</span>
-                    <svg style="width:18px;height:18px;fill:currentColor;margin-left:6px;" viewBox="0 0 24 24"><path d="M14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3m-2 16H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7z"/></svg>
+                    <svg style="width:18px;height:18px;fill:currentColor;margin-left:6px;" viewBox="0 0 24 24">
+                        <path
+                            d="M14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3m-2 16H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7z" />
+                    </svg>
                 </a>
 
                 <button class="btn-copy" onclick="copyOfferUrl()">Copy Offer Link</button>
@@ -629,9 +856,29 @@
                 <div class="log-entry log-info">[System] Ready for input. Enter email to begin.</div>
             </div>
         </div>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <div class="footer-love-badge">
+                <span class="heart-pulse">❤️</span>
+                <span>created by love for love by Debabrata </span>
+                <span class="heart-pulse">❤️</span>
+            </div>
+            <div class="footer-signature">Created by Dev • Powered by Gemini Automation</div>
+        </footer>
     </div>
 
     <script>
+        // Dismiss preloader smoothly after page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                const loader = document.getElementById('page-loader');
+                if (loader) {
+                    loader.classList.add('fade-out');
+                }
+            }, 850);
+        });
+
         let currentSessionId = null;
         let countdownTimer = null;
         let timeLeft = 30;
@@ -677,7 +924,7 @@
             const btnResend = document.getElementById('btn-resend');
             const timerText = document.getElementById('timer-text');
             const countdownEl = document.getElementById('countdown');
-            
+
             btnResend.disabled = true;
             timerText.style.display = 'inline';
             countdownEl.innerText = timeLeft;
@@ -838,4 +1085,5 @@
         }
     </script>
 </body>
+
 </html>
