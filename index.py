@@ -9,9 +9,9 @@ from flask import Flask, render_template, request, jsonify
 app = Flask(__name__)
 ACTIVE_SESSIONS = {}
 
-# ============================================================
+
 # CONFIGURATION & CONSTANTS
-# ============================================================
+
 BASE_URL = "https://internshala.com"
 
 # Registration, verification, and fallback endpoints
@@ -34,9 +34,9 @@ GEMINI_PAGE_URL = f"{BASE_URL}/google-gemini-ai-plus"
 CAMPAIGN_REGISTER_SUBMIT_URL = f"{BASE_URL}/campaign/register_submit"
 CAMPAIGN_NAME = "google_gemini_jul_2026"
 
-# ============================================================
+
 # INDIAN DATA BUCKETS & POOLS
-# ============================================================
+
 INDIAN_FIRST_NAMES = [
     "Aarav", "Aditya", "Rohan", "Rahul", "Amit", "Vikram", "Abhishek",
     "Karan", "Varun", "Siddharth", "Kunal", "Manish", "Deepak", "Rajesh",
@@ -98,9 +98,9 @@ PREFERENCE_MODES = ["Work from home", "In-office"]
 PREFERENCE_LOCATIONS = ["156"]
 
 
-# ============================================================
+
 # DYNAMIC PROFILE & AUTOCOMPLETE DATA FETCHERS
-# ============================================================
+
 def generate_random_phone():
     """Generates a unique 10-digit Indian phone number starting with 6, 7, 8, or 9."""
     first_digit = random.choice(["6", "7", "8", "9"])
@@ -284,9 +284,9 @@ def build_dynamic_student_profile(session):
     return profile
 
 
-# ============================================================
+
 # SESSION SETUP & CSRF TOKEN RETRIEVAL
-# ============================================================
+
 def create_session():
     """
     Creates a requests session with browser-like headers and
@@ -327,9 +327,9 @@ def create_session():
     return session
 
 
-# ============================================================
+
 # REGISTRATION / SEND OTP
-# ============================================================
+
 def register_account(session, email, profile=None):
     """
     Submits student registration details to Internshala with the valid CSRF token.
@@ -377,9 +377,9 @@ def register_account(session, email, profile=None):
     return response
 
 
-# ============================================================
+
 # VERIFY OTP
-# ============================================================
+
 def verify_email_otp(session, email, otp=None):
     """
     Submits the 6-digit OTP received on email to verify the account.
@@ -438,9 +438,9 @@ def verify_email_otp(session, email, otp=None):
         return None
 
 
-# ============================================================
+
 # RESEND OTP (FOR UNVERIFIED ACCOUNTS)
-# ============================================================
+
 def resend_email_otp(session, email):
     """
     Triggers an OTP resend for an account that is registered but not yet verified.
@@ -486,9 +486,9 @@ def resend_email_otp(session, email):
         return None
 
 
-# ============================================================
+
 # FORGOT PASSWORD FALLBACK (FOR REGISTERED & VERIFIED ACCOUNTS)
-# ============================================================
+
 def send_forgot_password(session, email):
     """
     Fallback for already registered and verified accounts:
@@ -561,9 +561,9 @@ def send_forgot_password(session, email):
         return response.text
 
 
-# ============================================================
+
 # UPDATE PERSONAL DETAILS
-# ============================================================
+
 def update_personal_details(session, profile=None):
     """
     Calls https://internshala.com/student/personal_details_update
@@ -636,9 +636,9 @@ def update_personal_details(session, profile=None):
         return response.text
 
 
-# ============================================================
+
 # SUBMIT USER PREFERENCES - CATEGORIES (STEP 1)
-# ============================================================
+
 def submit_user_preference_categories(session, categories=None):
     """
     Calls https://internshala.com/user_preference/preferences_submit
@@ -701,9 +701,9 @@ def submit_user_preference_categories(session, categories=None):
         return response.text
 
 
-# ============================================================
+
 # SUBMIT USER PREFERENCES - OTHERS (STEP 2)
-# ============================================================
+
 def submit_user_preference_others(session, preference_types=None, modes=None, locations=None, location_id=None):
     """
     Calls https://internshala.com/user_preference/preferences_submit
@@ -774,9 +774,9 @@ def submit_user_preference_others(session, preference_types=None, modes=None, lo
         return response.text
 
 
-# ============================================================
+
 # CLAIM GOOGLE GEMINI 12-MONTHS TRIAL OFFER
-# ============================================================
+
 def claim_google_gemini_offer(session):
     """
     Simulates visiting https://internshala.com/google-gemini-ai-plus
@@ -860,9 +860,9 @@ def submit_user_preferences(session):
     submit_user_preference_others(session)
 
 
-# ============================================================
+
 # MAIN ENTRY POINT
-# ============================================================
+
 def main():
     print("=" * 40)
     print("     INTERNSHALA REGISTRATION FLOW")
@@ -1025,9 +1025,9 @@ def main():
                 pass
 
 
-# ============================================================
+
 # FLASK WEB APPLICATION ROUTES (FOR RENDER & WEB HOSTING)
-# ============================================================
+
 @app.route("/")
 def index():
     return render_template("index.html")
