@@ -2,8 +2,11 @@ import os
 import sys
 import time
 import re
+import json
 import threading
 from datetime import datetime
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import requests
 import telebot
 from telebot import types
 
@@ -1734,6 +1737,57 @@ def handle_admin_state_input(message: types.Message, current_state: str, text: s
         return
 
 
+# RENDER & CLOUD WEB SERVICE HEALTH SERVER (ANTI-SLEEP BYPASS)
+
+class RenderHealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "application/json")
+        self.end_headers()
+        payload = {
+            "status": "online",
+            "bot": "Google Gemini Telegram Bot",
+            "health": "healthy",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        self.wfile.write(json.dumps(payload, indent=2).encode("utf-8"))
+
+    def log_message(self, format, *args):
+        # Silence access logs so console remains clean
+        return
+
+
+def run_health_server(port: int):
+    try:
+        server = HTTPServer(("0.0.0.0", port), RenderHealthHandler)
+        print(f"🌐 Cloud Web Service Health Server listening on port {port}")
+        server.serve_forever()
+    except Exception as e:
+        print(f"[!] Health server exception: {e}")
+
+
+def run_anti_sleep_pinger():
+    """
+    Render Free Web Services spin down after 15 minutes of inactivity.
+    This background loop auto-detects RENDER_EXTERNAL_URL and pings itself
+    every 8 minutes to keep the bot permanently awake 24/7!
+    """
+    time.sleep(20)  # Wait for service startup
+    ping_url = os.getenv("RENDER_EXTERNAL_URL") or os.getenv("PING_URL", "").strip()
+    if not ping_url:
+        print("[i] Anti-sleep pinger: No RENDER_EXTERNAL_URL detected yet (running locally or URL not provided).")
+        return
+
+    print(f"⏰ Anti-sleep keep-alive pinger activated! Pinging {ping_url} every 8 minutes...")
+    while True:
+        try:
+            time.sleep(480)  # 8 minutes
+            r = requests.get(ping_url, timeout=20)
+            print(f"[✓] Keep-alive ping sent to {ping_url} (HTTP {r.status_code})")
+        except Exception as e:
+            print(f"[!] Keep-alive ping failed: {e}")
+
+
 # MAIN BOT RUNNER
 
 def run_bot():
@@ -1743,6 +1797,23 @@ def run_bot():
     print(f"👑 Admins: {config.ADMIN_IDS}")
     print(f"👥 Default Required Referrals: {config.DEFAULT_REQUIRED_REFERRALS}")
     print("=" * 60 + "\n")
+
+    # Start Render / Cloud Health Check HTTP server if PORT or RENDER is set
+    port_str = os.getenv("PORT", "")
+    if port_str or os.getenv("RENDER"):
+        port = int(port_str) if port_str.isdigit() else 10000
+        threading.Thread(target=run_health_server, args=(port,), daemon=True).start()
+        threading.Thread(target=run_anti_sleep_pinger, daemon=True).start()
+
+    # Configure Telegram Menu Button with only /start command
+    try:
+        bot.set_my_commands([
+            types.BotCommand("start", "🚀 Start / Open Main Menu")
+        ])
+        bot.set_chat_menu_button(menu_button=types.MenuButtonCommands())
+        print("✅ Telegram Menu Button configured with only /start command")
+    except Exception as e:
+        print(f"[!] Note on menu button: {e}")
 
     while True:
         try:

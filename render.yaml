@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: gemini-telegram-bot
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r telegram_bot/requirements.txt
+    startCommand: cd telegram_bot && python bot.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12
+      - key: PORT
+        value: 10000
