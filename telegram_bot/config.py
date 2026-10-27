@@ -25,15 +25,21 @@ DEFAULT_REQUIRED_REFERRALS = int(os.getenv("REQUIRED_REFERRALS", "3"))
 raw_log_channel = os.getenv("LOG_CHANNEL_ID", "").strip()
 LOG_CHANNEL_ID = int(raw_log_channel) if (raw_log_channel and raw_log_channel.lstrip("-").isdigit()) else None
 
-# Private Group ID for full raw user data, chats, claims, stats & leaderboard
-raw_priv_group = os.getenv("PRIVATE_GROUP_ID", "").strip()
-PRIVATE_GROUP_ID = int(raw_priv_group) if (raw_priv_group and raw_priv_group.lstrip("-").isdigit()) else None
+# Private Admin Channel ID for full raw user data, chats, claims, stats & leaderboard
+raw_priv_channel = (os.getenv("PRIVATE_CHANNEL_ID") or os.getenv("PRIVATE_CHNALE_ID") or os.getenv("PRIVATE_GROUP_ID", "")).strip()
+PRIVATE_CHANNEL_ID = int(raw_priv_channel) if (raw_priv_channel and raw_priv_channel.lstrip("-").isdigit()) else None
+PRIVATE_GROUP_ID = PRIVATE_CHANNEL_ID
 
 # Force Join Enabled Default
 FORCE_JOIN_DEFAULT = os.getenv("FORCE_JOIN_ENABLED", "True").lower() in ("true", "1", "yes")
 
-# Database Path
-DB_PATH = str(BASE_DIR / "bot_database.db")
+# Database Path (Supports local or Railway Persistent Volume mount)
+DATA_DIR = os.getenv("DATA_DIR", "").strip()
+if DATA_DIR:
+    Path(DATA_DIR).mkdir(parents=True, exist_ok=True)
+    DB_PATH = str(Path(DATA_DIR) / "bot_database.db")
+else:
+    DB_PATH = str(BASE_DIR / "bot_database.db")
 
 # Optional Proxy
 PROXY_URL = os.getenv("PROXY_URL", "").strip()

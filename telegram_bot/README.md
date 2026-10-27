@@ -25,12 +25,17 @@ A high-performance, production-ready Telegram Bot in Python that automates claim
 - Real-time membership check using Telegram Bot API `getChatMember`.
 - Channels can be added, removed, or toggled ON/OFF directly from the Admin Panel.
 
-### 3. 👥 Referral & Premium Access System
+### 3. 👥 Referral Points & Per-Claim Consumption System
 - **Unique Referral Links**: Each user gets a personalized referral link: `https://t.me/<bot_username>?start=ref_<user_id>`.
-- **Anti-Cheat Verification**: Referrals are only counted when the invited user joins the bot and completes the channel verification. Self-referrals and duplicates are blocked.
-- **Referral Target & Progress Bar**: Visual progress indicator (e.g. `[██████░░░░] 2/3 (66%)`).
-- **Automatic Premium Unlock**: Once a user reaches the required referral count (configurable by Admin, default: 3), their account is automatically upgraded to **⭐ PREMIUM** and they receive a congratulatory notification unlocking Gemini claim access!
-- **Share Button**: 1-click button to instantly share the referral link across Telegram chats and groups.
+- **Anti-Cheat Verification**: Referrals are only counted when a real human joins and completes mandatory channel verification. Bots and self-referrals are blocked.
+- **Points-Per-Claim Consumption**:
+  - Each verified referral grants **1 Claim Point**.
+  - To claim a 12-Month Gemini offer, users must have at least **3 Claim Points** (configurable by Admin).
+  - Upon receiving the Gemini link, **3 points are deducted**. To claim another subscription, the user must refer 3 new real friends!
+- **Visual Progress & Balance**: Shows current claim points (e.g. `[██████░░░░] 2/3 (66%)`) and lifetime invite counts.
+- **Dual Logging Architecture**:
+  - **`LOG_CHANNEL_ID`** (Channel): Sanitized, public-safe proof feed with sensitive user information masked (`****`).
+  - **`PRIVATE_GROUP_ID`** (Admin Group): Full raw unmasked intelligence (Full Name, Username, User ID, Chat ID, Raw Gmail, Full Offer Link, Referrer Information, and Live Top Claimers Leaderboards).
 
 ### 4. 🛠️ Comprehensive Admin Dashboard (`/admin`)
 - **📊 Real-Time Statistics**: Total registered users, Premium members, Free users, Successful Gemini claims, Total verified referrals, Active channels.
@@ -102,8 +107,11 @@ REQUIRED_REFERRALS=3
 # Force Join Status (True / False)
 FORCE_JOIN_ENABLED=True
 
-# Private Log Channel ID (Must add bot as Administrator with Post Messages permission)
+# Public-safe Log Channel ID (Masked logs with ****)
 LOG_CHANNEL_ID=-1001234567890
+
+# Private Admin Channel ID (Full raw unmasked user details, stats & leaderboards)
+PRIVATE_CHANNEL_ID=-1009876543210
 
 # Optional HTTP/HTTPS proxy if needed
 PROXY_URL=

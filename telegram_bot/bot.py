@@ -28,10 +28,45 @@ USER_STATES = {}
 ADMIN_BROADCAST_DRAFT = {}
 
 
-# LOGGING & PRIVATE AUDIT CHANNEL
+# MASKING UTILITIES (Censored with **** for public / channel log)
+
+def mask_email(email: str) -> str:
+    if not email or "@" not in email:
+        return "****"
+    user_part, domain = email.split("@", 1)
+    if len(user_part) <= 2:
+        masked_user = user_part[0] + "***"
+    else:
+        masked_user = user_part[:2] + "****"
+    return f"{masked_user}@{domain}"
+
+
+def mask_name(name: str) -> str:
+    if not name:
+        return "****"
+    parts = name.strip().split()
+    masked_parts = []
+    for p in parts:
+        if len(p) <= 2:
+            masked_parts.append(p[0] + "**")
+        else:
+            masked_parts.append(p[:2] + "****")
+    return " ".join(masked_parts)
+
+
+def mask_text(text: any) -> str:
+    if not text:
+        return "****"
+    s = str(text)
+    if len(s) <= 3:
+        return s[0] + "**"
+    return s[:2] + "****" + (s[-2:] if len(s) > 6 else "")
+
+
+# LOGGING & PRIVATE AUDIT
 
 def log_to_channel(text: str):
-    """Sends event logs, user registrations, referral counts, and claims to the private log channel."""
+    """Sends sanitized / masked event logs (with ****) to the private log channel."""
     channel_id = config.LOG_CHANNEL_ID
     if channel_id:
         try:
@@ -39,6 +74,46 @@ def log_to_channel(text: str):
         except Exception as e:
             print(f"[!] Warning: Failed to send log to channel {channel_id}: {e}")
             print(f"[!] Tip: Ensure your bot is added as an ADMINISTRATOR in channel {channel_id} with 'Post Messages' permission enabled!")
+
+
+def log_to_private_channel(text: str):
+    """Sends full raw, unmasked intelligence, chat IDs, claims & leaderboards to the private admin channel."""
+    channel_id = config.PRIVATE_CHANNEL_ID or config.PRIVATE_GROUP_ID
+    if channel_id:
+        try:
+            bot.send_message(channel_id, text, parse_mode="HTML", disable_web_page_preview=True)
+        except Exception as e:
+            print(f"[!] Warning: Failed to send log to private channel {channel_id}: {e}")
+            print(f"[!] Tip: Ensure your bot is added as an ADMINISTRATOR in channel {channel_id} with 'Post Messages' permission enabled!")
+
+# Aliases
+log_to_private_group = log_to_private_channel
+
+
+def format_top_stats_summary() -> str:
+    """Generates leaderboard of top claimers and top referrers for private group audit."""
+    top_claimers = db.get_top_claimers(5)
+    top_referrers = db.get_top_referrers(5)
+
+    res = "🏆 <b>TOP CLAIMERS:</b>\n"
+    if top_claimers:
+        for i, u in enumerate(top_claimers, 1):
+            u_name = u.get('first_name', 'User')
+            u_tag = f" (@{u['username']})" if u.get('username') else ""
+            res += f"{i}. <b>{u_name}</b>{u_tag} [<code>{u['user_id']}</code>] ➔ <b>{u['claims_count']} Claims</b>\n"
+    else:
+        res += "<i>No claims recorded yet.</i>\n"
+
+    res += "\n👥 <b>TOP REFERRERS:</b>\n"
+    if top_referrers:
+        for i, u in enumerate(top_referrers, 1):
+            u_name = u.get('first_name', 'User')
+            u_tag = f" (@{u['username']})" if u.get('username') else ""
+            res += f"{i}. <b>{u_name}</b>{u_tag} [<code>{u['user_id']}</code>] ➔ <b>{u['referral_count']} Invites</b> ({u.get('referral_points', 0)} pts)\n"
+    else:
+        res += "<i>No referrals recorded yet.</i>\n"
+
+    return res
 
 # Alias for backward compatibility
 log_to_group = log_to_channel
@@ -139,13 +214,24 @@ def handle_start(message: types.Message):
 
     user, is_new = db.register_user(user_id, username, first_name, last_name, referrer_id, is_bot=is_bot)
 
-    # Send log event to private log group if new user
+    # Send log event if new user
     if is_new:
-        log_to_group(
-            f"🟢 <b>NEW USER REGISTERED</b>\n\n"
+        # Masked to channel
+        log_to_channel(
+            f"🟢 <b>NEW USER JOINED</b>\n\n"
+            f"👤 <b>User:</b> {mask_name(first_name)}\n"
+            f"🆔 <b>Telegram ID:</b> <code>{mask_text(user_id)}</code>\n"
+            f"👥 <b>Referred By:</b> <code>{mask_text(referrer_id) if referrer_id else 'Direct (None)'}</code>\n"
+            f"⏰ <b>Timestamp:</b> <code>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</code>"
+        )
+        # Raw unmasked to private group
+        log_to_private_group(
+            f"🟢 <b>[PRIVATE AUDIT] NEW USER REGISTRATION</b>\n\n"
+            f"👤 <b>Full Name:</b> {first_name} {last_name}\n"
+            f"🏷 <b>Username:</b> @{username or 'No_Username'}\n"
             f"🆔 <b>User ID:</b> <code>{user_id}</code>\n"
-            f"👤 <b>Name:</b> {first_name} {last_name} (@{username or 'No_Username'})\n"
-            f"👥 <b>Referred By:</b> <code>{referrer_id or 'Direct (No Referrer)'}</code>\n"
+            f"💬 <b>Chat ID:</b> <code>{message.chat.id}</code>\n"
+            f"👥 <b>Referred By ID:</b> <code>{referrer_id or 'Direct Link (None)'}</code>\n"
             f"⏰ <b>Timestamp:</b> <code>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</code>"
         )
 
@@ -165,7 +251,7 @@ def handle_start(message: types.Message):
     # If they were just registered with a referrer, verify reward
     reward = db.verify_referral_reward(user_id)
     if reward:
-        ref_id, count, reached_prem = reward
+        ref_id, count, points, reached_prem = reward
         req_ref = db.get_required_referrals()
         try:
             u_tag = f" (@{username})" if username else ""
@@ -173,25 +259,37 @@ def handle_start(message: types.Message):
                 ref_id,
                 f"🎉 <b>REAL REFERRAL CONFIRMED!</b>\n\n"
                 f"👤 <b>{first_name}</b>{u_tag} joined and verified their real Telegram account!\n"
-                f"📊 Your Total Real Referrals: <b>{count}/{req_ref}</b>"
+                f"💎 Available Claim Points: <b>{points}/{req_ref} pts</b>\n"
+                f"👥 Total Lifetime Invites: <b>{count}</b>"
             )
             if reached_prem:
                 bot.send_message(
                     ref_id,
-                    f"👑 <b>CONGRATULATIONS! PREMIUM UNLOCKED!</b>\n\n"
-                    f"You have reached <b>{count} verified real referrals</b>! Your account has been upgraded to <b>⭐ PREMIUM</b>!\n"
-                    f"You can now claim your <b>12-Month Google Gemini AI & Google One Trial</b> for FREE!\n\n"
+                    f"👑 <b>READY TO CLAIM GEMINI 12-MONTH PRO!</b>\n\n"
+                    f"You now have <b>{points} referral points</b>!\n"
+                    f"You can now claim your <b>12-Month Google Gemini AI & Google One Trial</b>!\n\n"
                     f"👉 Press <b>'💎 Claim Gemini 12-Month Pro'</b> in the menu below to start!"
                 )
         except Exception:
             pass
 
-        log_to_group(
+        # Masked to channel
+        log_to_channel(
             f"👥 <b>REAL REFERRAL VERIFIED</b>\n\n"
-            f"👑 <b>Referrer ID:</b> <code>{ref_id}</code>\n"
-            f"👤 <b>Joined Real User:</b> {first_name} (@{username or 'No_Username'})\n"
-            f"📊 <b>Referrer Count:</b> <b>{count}/{req_ref}</b>\n"
-            f"⭐ <b>Upgraded to Premium:</b> {'YES 🎉' if reached_prem else 'NO'}\n"
+            f"👑 <b>Referrer ID:</b> <code>{mask_text(ref_id)}</code>\n"
+            f"👤 <b>New Member:</b> {mask_name(first_name)}\n"
+            f"📊 <b>Referrer Balance:</b> <b>{points}/{req_ref} Points</b>\n"
+            f"⏰ <b>Timestamp:</b> <code>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</code>"
+        )
+        # Raw unmasked to private group
+        log_to_private_group(
+            f"👥 <b>[PRIVATE AUDIT] REAL REFERRAL VERIFIED</b>\n\n"
+            f"👑 <b>Referrer ID:</b> <code>{ref_id}</code> (Points: <b>{points}</b>, Total: <b>{count}</b>)\n"
+            f"👤 <b>Referred User:</b> {first_name} {last_name} (@{username or 'No_Username'})\n"
+            f"🆔 <b>Referred User ID:</b> <code>{user_id}</code>\n"
+            f"💬 <b>Chat ID:</b> <code>{message.chat.id}</code>\n"
+            f"💎 <b>Referrer Current Points:</b> <b>{points}/{req_ref}</b>\n"
+            f"⭐ <b>Ready for Gemini Claim:</b> {'YES ✅' if reached_prem else 'NO'}\n"
             f"⏰ <b>Timestamp:</b> <code>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</code>"
         )
 
@@ -226,7 +324,7 @@ def handle_verify_force_join(call: types.CallbackQuery):
     # Rewarded referrer if applicable
     reward = db.verify_referral_reward(user_id)
     if reward:
-        ref_id, count, reached_prem = reward
+        ref_id, count, points, reached_prem = reward
         req_ref = db.get_required_referrals()
         try:
             username_tag = f" (@{call.from_user.username})" if call.from_user.username else ""
@@ -234,18 +332,39 @@ def handle_verify_force_join(call: types.CallbackQuery):
                 ref_id,
                 f"🎉 <b>REAL REFERRAL CONFIRMED!</b>\n\n"
                 f"👤 <b>{first_name}</b>{username_tag} verified their real Telegram account!\n"
-                f"📊 Your Verified Real Referrals: <b>{count}/{req_ref}</b>"
+                f"💎 Available Claim Points: <b>{points}/{req_ref} pts</b>\n"
+                f"👥 Total Lifetime Invites: <b>{count}</b>"
             )
             if reached_prem:
                 bot.send_message(
                     ref_id,
-                    f"👑 <b>CONGRATULATIONS! PREMIUM UNLOCKED!</b>\n\n"
-                    f"You have reached <b>{count} real referrals</b>! Your account has been upgraded to <b>⭐ PREMIUM</b>!\n"
-                    f"You can now claim your <b>12-Month Google Gemini AI & Google One Trial</b> for FREE!\n\n"
+                    f"👑 <b>READY TO CLAIM GEMINI 12-MONTH PRO!</b>\n\n"
+                    f"You now have <b>{points} referral points</b>!\n"
+                    f"You can now claim your <b>12-Month Google Gemini AI & Google One Trial</b>!\n\n"
                     f"👉 Press <b>'💎 Claim Gemini 12-Month Pro'</b> in the menu below to start!"
                 )
         except Exception:
             pass
+
+        # Masked to channel
+        log_to_channel(
+            f"👥 <b>REAL REFERRAL VERIFIED</b>\n\n"
+            f"👑 <b>Referrer ID:</b> <code>{mask_text(ref_id)}</code>\n"
+            f"👤 <b>New Member:</b> {mask_name(first_name)}\n"
+            f"📊 <b>Referrer Balance:</b> <b>{points}/{req_ref} Points</b>\n"
+            f"⏰ <b>Timestamp:</b> <code>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</code>"
+        )
+        # Raw unmasked to private group
+        log_to_private_group(
+            f"👥 <b>[PRIVATE AUDIT] REAL REFERRAL VERIFIED</b>\n\n"
+            f"👑 <b>Referrer ID:</b> <code>{ref_id}</code> (Points: <b>{points}</b>, Total: <b>{count}</b>)\n"
+            f"👤 <b>Referred User:</b> {first_name} (@{call.from_user.username or 'No_Username'})\n"
+            f"🆔 <b>Referred User ID:</b> <code>{user_id}</code>\n"
+            f"💬 <b>Chat ID:</b> <code>{call.message.chat.id}</code>\n"
+            f"💎 <b>Referrer Current Points:</b> <b>{points}/{req_ref}</b>\n"
+            f"⭐ <b>Ready for Gemini Claim:</b> {'YES ✅' if reached_prem else 'NO'}\n"
+            f"⏰ <b>Timestamp:</b> <code>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</code>"
+        )
 
     bot.answer_callback_query(call.id, "✅ Channels verified successfully! Welcome!")
     try:
@@ -280,11 +399,11 @@ def handle_referral_menu(message: types.Message):
     ref_link = f"https://t.me/{bot_username}?start=ref_{user_id}"
 
     ref_count = user.get("referral_count", 0)
+    points = user.get("referral_points", 0)
     req_ref = db.get_required_referrals()
-    is_premium = bool(user.get("is_premium", 0))
 
-    progress = get_progress_bar(ref_count, req_ref, length=10)
-    percent = min(100, int((ref_count / req_ref) * 100)) if req_ref > 0 else 100
+    progress = get_progress_bar(points, req_ref, length=10)
+    percent = min(100, int((points / req_ref) * 100)) if req_ref > 0 else 100
 
     share_url = f"https://t.me/share/url?url={ref_link}&text=🚀%20Get%20FREE%20Google%20Gemini%2012-Month%20Subscription!%20Join%20here:"
 
@@ -293,20 +412,23 @@ def handle_referral_menu(message: types.Message):
     markup.add(types.InlineKeyboardButton(text="👥 View My Real Referred Users", callback_data="view_my_referrals"))
     markup.add(types.InlineKeyboardButton(text="🔄 Refresh Referral Stats", callback_data="refresh_referrals"))
 
-    status_str = "👑 <b>PREMIUM UNLOCKED (Active)</b>" if is_premium else f"🔒 <b>FREE</b> (Need {max(0, req_ref - ref_count)} more)"
+    status_str = f"👑 <b>READY TO CLAIM ({points} Points)</b>" if points >= req_ref else f"🔒 <b>Need {max(0, req_ref - points)} more points</b>"
 
     msg_text = (
         f"👥 <b>REAL USER REFERRAL CENTER</b>\n\n"
-        f"Invite real friends to unlock <b>PREMIUM ACCESS</b> and claim your "
+        f"Invite real friends to earn <b>Claim Points</b> and unlock your "
         f"<b>Google Gemini 12-Month Free Trial</b>!\n\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"🔗 <b>Your Exclusive Referral Link:</b>\n"
         f"<code>{ref_link}</code>\n\n"
-        f"📊 <b>Real Referrals Progress:</b>\n"
-        f"<code>[{progress}] {ref_count}/{req_ref} ({percent}%)</code>\n\n"
-        f"👑 <b>Current Status:</b> {status_str}\n"
+        f"💎 <b>Current Claim Points:</b> <b>{points}/{req_ref} points</b>\n"
+        f"<code>[{progress}] ({percent}%)</code>\n\n"
+        f"👥 <b>Total Lifetime Referrals:</b> {ref_count}\n"
+        f"🎁 <b>Total Gemini Claims:</b> {user.get('claims_count', 0)}\n"
+        f"👑 <b>Status:</b> {status_str}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"🛡️ <i>Real User Policy: To guarantee quality and prevent fake accounts, each referral must be a real Telegram user who completes channel verification.</i>"
+        f"💡 <i>Each claim costs {req_ref} points. When you receive an offer link, {req_ref} points are used. You can refer {req_ref} more friends anytime to claim again!</i>\n"
+        f"🛡️ <i>Real User Policy: Each referral must be a real Telegram user who completes channel verification.</i>"
     )
 
     bot.send_message(message.chat.id, msg_text, reply_markup=markup)
@@ -317,27 +439,30 @@ def handle_refresh_referrals(call: types.CallbackQuery):
     user_id = call.from_user.id
     user = db.get_user(user_id) or {}
     ref_count = user.get("referral_count", 0)
+    points = user.get("referral_points", 0)
     req_ref = db.get_required_referrals()
-    is_premium = bool(user.get("is_premium", 0))
 
     bot_info = bot.get_me()
     ref_link = f"https://t.me/{bot_info.username}?start=ref_{user_id}"
-    progress = get_progress_bar(ref_count, req_ref, length=10)
-    percent = min(100, int((ref_count / req_ref) * 100)) if req_ref > 0 else 100
+    progress = get_progress_bar(points, req_ref, length=10)
+    percent = min(100, int((points / req_ref) * 100)) if req_ref > 0 else 100
 
-    status_str = "👑 <b>PREMIUM UNLOCKED (Active)</b>" if is_premium else f"🔒 <b>FREE</b> (Need {max(0, req_ref - ref_count)} more)"
+    status_str = f"👑 <b>READY TO CLAIM ({points} Points)</b>" if points >= req_ref else f"🔒 <b>Need {max(0, req_ref - points)} more points</b>"
 
     msg_text = (
         f"👥 <b>REAL USER REFERRAL CENTER</b>\n\n"
-        f"Invite real friends to unlock <b>PREMIUM ACCESS</b> and claim your "
+        f"Invite real friends to earn <b>Claim Points</b> and unlock your "
         f"<b>Google Gemini 12-Month Free Trial</b>!\n\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"🔗 <b>Your Exclusive Referral Link:</b>\n"
         f"<code>{ref_link}</code>\n\n"
-        f"📊 <b>Real Referrals Progress:</b>\n"
-        f"<code>[{progress}] {ref_count}/{req_ref} ({percent}%)</code>\n\n"
-        f"👑 <b>Current Status:</b> {status_str}\n"
+        f"💎 <b>Current Claim Points:</b> <b>{points}/{req_ref} points</b>\n"
+        f"<code>[{progress}] ({percent}%)</code>\n\n"
+        f"👥 <b>Total Lifetime Referrals:</b> {ref_count}\n"
+        f"🎁 <b>Total Gemini Claims:</b> {user.get('claims_count', 0)}\n"
+        f"👑 <b>Status:</b> {status_str}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"💡 <i>Each claim costs {req_ref} points. When you receive an offer link, {req_ref} points are used. You can refer {req_ref} more friends anytime to claim again!</i>\n"
         f"🛡️ <i>Real User Policy: Each referral must be a real Telegram user who completes channel verification.</i>"
     )
 
@@ -349,7 +474,7 @@ def handle_refresh_referrals(call: types.CallbackQuery):
 
     try:
         bot.edit_message_text(msg_text, call.message.chat.id, call.message.message_id, reply_markup=markup)
-        bot.answer_callback_query(call.id, f"Refreshed! You have {ref_count} verified real referrals.")
+        bot.answer_callback_query(call.id, f"Refreshed! You have {points} claim points ({ref_count} total invites).")
     except Exception:
         bot.answer_callback_query(call.id, "Referral stats are up to date!")
 
@@ -446,8 +571,10 @@ def handle_my_account(message: types.Message):
         f"👤 <b>MY ACCOUNT PROFILE</b>\n\n"
         f"🆔 <b>Telegram ID:</b> <code>{user_id}</code>\n"
         f"👤 <b>Name:</b> {message.from_user.full_name}\n"
-        f"👑 <b>Status:</b> {'⭐ PREMIUM USER' if user.get('is_premium') else '🆓 Free User'}\n"
-        f"👥 <b>Verified Real Referrals:</b> {user.get('referral_count', 0)}\n"
+        f"👑 <b>Status:</b> {'⭐ READY TO CLAIM' if user.get('referral_points', 0) >= db.get_required_referrals() else '🆓 Free User'}\n"
+        f"💎 <b>Available Claim Points:</b> <b>{user.get('referral_points', 0)} / {db.get_required_referrals()} pts</b>\n"
+        f"👥 <b>Total Lifetime Referrals:</b> {user.get('referral_count', 0)}\n"
+        f"🎁 <b>Successful Claims:</b> {user.get('claims_count', 0)}\n"
         f"📅 <b>Joined Date:</b> {user.get('joined_at', 'Recently')}"
         f"{claims_text}"
     )
@@ -463,15 +590,18 @@ def handle_help(message: types.Message):
         f"<b>1. What does this bot do?</b>\n"
         f"This bot automatically registers and activates an official "
         f"<b>12-Month Google Gemini Advanced + Google One 2TB Cloud Storage Trial Offer</b> for your Google account.\n\n"
-        f"<b>2. How does the real referral system work?</b>\n"
-        f"Invite <b>{req_ref} real friends</b> using your unique invite link from <b>'👥 Refer Friends (Earn Premium)'</b>. "
-        f"When they join and verify the required channel, your referral counter increases. Reach the goal to unlock Premium instantly!\n\n"
-        f"<b>3. What happens after I enter my Gmail?</b>\n"
-        f"• The bot registers your trial claim request with authorized education partners.\n"
+        f"<b>2. How does the referral points system work?</b>\n"
+        f"Each claim costs <b>{req_ref} Referral Points</b>. "
+        f"Invite real friends using your unique invite link from <b>'👥 Refer Friends (Earn Premium)'</b>. "
+        f"When they join and verify the required channel, you earn +1 point. Reach {req_ref} points to claim your 12-Month offer!\n\n"
+        f"<b>3. Can I claim multiple times?</b>\n"
+        f"Yes! After claiming an offer, {req_ref} points are used. Simply invite {req_ref} more friends to claim another account!\n\n"
+        f"<b>4. What happens after I enter my Gmail?</b>\n"
+        f"• The bot registers your trial claim request.\n"
         f"• A 6-digit verification OTP code is dispatched to your Gmail inbox.\n"
-        f"• You send the 6-digit OTP here, and the bot completes automated activation and sends you your direct Google One activation link!\n\n"
-        f"<b>4. Is it safe?</b>\n"
-        f"Yes, 100% safe! We never ask for your Google account password or login credentials. Only a temporary 6-digit verification OTP code."
+        f"• You send the 6-digit OTP here, and the bot sends you your direct Google One activation link!\n\n"
+        f"<b>5. Is it safe?</b>\n"
+        f"Yes, 100% safe! We never ask for your Google account password. Only a temporary 6-digit verification OTP code."
     )
     bot.send_message(message.chat.id, text)
 
@@ -495,15 +625,13 @@ def handle_claim_start(message: types.Message):
         )
         return
 
-    # STEP 2: REFERRAL / PREMIUM CHECK
+    # STEP 2: REFERRAL POINTS CHECK
     is_referral_required = db.get_setting("referral_system_enabled", "1") == "1"
-    is_premium = bool(user.get("is_premium", 0))
+    req_ref = db.get_required_referrals()
+    points = user.get("referral_points", 0)
 
-    if is_referral_required and not is_premium and not is_admin(user_id):
-        ref_count = user.get("referral_count", 0)
-        req_ref = db.get_required_referrals()
-        needed = max(0, req_ref - ref_count)
-
+    if is_referral_required and not is_admin(user_id) and points < req_ref:
+        needed = max(0, req_ref - points)
         bot_info = bot.get_me()
         ref_link = f"https://t.me/{bot_info.username}?start=ref_{user_id}"
         share_url = f"https://t.me/share/url?url={ref_link}&text=🚀%20Get%20FREE%20Google%20Gemini%2012-Month%20Subscription!%20Join%20here:"
@@ -513,13 +641,12 @@ def handle_claim_start(message: types.Message):
         markup.add(types.InlineKeyboardButton(text="🔄 Check Referral Progress", callback_data="refresh_referrals"))
 
         text = (
-            f"🔒 <b>PREMIUM FEATURE LOCKED</b>\n\n"
-            f"To prevent server overload and abuse, claiming the <b>12-Month Google Gemini AI Trial</b> "
-            f"requires <b>Premium Access</b>!\n\n"
-            f"🎁 <b>How to unlock for FREE:</b>\n"
-            f"Invite <b>{req_ref} real friends</b> using your referral link. You currently have <b>{ref_count}/{req_ref}</b>.\n"
-            f"You only need <b>{needed} more referral(s)</b>!\n\n"
-            f"🔗 <b>Your Link:</b>\n<code>{ref_link}</code>"
+            f"🔒 <b>REFERRAL POINTS REQUIRED FOR CLAIM</b>\n\n"
+            f"Each <b>12-Month Google Gemini Pro Free Trial</b> requires <b>{req_ref} Referral Points</b>!\n\n"
+            f"📊 <b>Your Points Balance:</b> <b>{points}/{req_ref} points</b>\n"
+            f"You need <b>{needed} more verified real referral(s)</b> to unlock this claim.\n\n"
+            f"💡 <i>Once you receive your Gemini link, {req_ref} points will be used, and you can refer another {req_ref} friends for future claims!</i>\n\n"
+            f"🔗 <b>Your Exclusive Link:</b>\n<code>{ref_link}</code>"
         )
         bot.send_message(message.chat.id, text, reply_markup=markup)
         return
@@ -540,7 +667,6 @@ def handle_claim_start(message: types.Message):
         f"<i>Example: yourname@gmail.com</i>\n\n"
         f"⚠️ <i>Note: Only active @gmail.com addresses are supported.</i>"
     )
-    bot.send_message(message.chat.id, prompt_text, reply_markup=cancel_markup)
     bot.send_message(message.chat.id, prompt_text, reply_markup=cancel_markup)
 
 
@@ -632,13 +758,15 @@ def handle_user_states(message: types.Message):
             except Exception:
                 pass
 
-        # Log to private log group
-        log_to_group(
-            f"💬 <b>NEW SUPPORT INQUIRY #{ticket_id}</b>\n\n"
+        # Log to private group
+        log_to_private_group(
+            f"💬 <b>[PRIVATE AUDIT] NEW SUPPORT INQUIRY #{ticket_id}</b>\n\n"
+            f"👤 <b>From User:</b> {message.from_user.full_name}\n"
+            f"🏷 <b>Username:</b> @{message.from_user.username or 'No_Username'}\n"
             f"🆔 <b>User ID:</b> <code>{user_id}</code>\n"
-            f"👤 <b>User:</b> {message.from_user.full_name} (@{message.from_user.username or 'No_Username'})\n"
+            f"💬 <b>Chat ID:</b> <code>{message.chat.id}</code>\n"
             f"⏰ <b>Timestamp:</b> <code>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</code>\n\n"
-            f"📝 <b>Message:</b>\n{text}"
+            f"📝 <b>User Message:</b>\n{text}"
         )
         return
 
@@ -653,6 +781,20 @@ def handle_user_states(message: types.Message):
                 "⚠️ <b>Action Required:</b> You must join our official channels before claiming the Gemini Pro offer!\n\n"
                 "Please join the channels below and press <b>'✅ Verify / Check Joined'</b>:",
                 reply_markup=build_force_join_markup(missing)
+            )
+            return
+
+        # Referral points check
+        user_db = db.get_user(user_id) or {}
+        req_ref = db.get_required_referrals()
+        is_ref_req = db.get_setting("referral_system_enabled", "1") == "1"
+        if is_ref_req and not is_admin(user_id) and user_db.get("referral_points", 0) < req_ref:
+            USER_STATES.pop(user_id, None)
+            bot.send_message(
+                message.chat.id,
+                f"🔒 <b>Action Cancelled:</b> You need at least <b>{req_ref} Referral Points</b> to claim Gemini.\n"
+                f"Invite more friends to earn points!",
+                reply_markup=build_main_menu(user_id)
             )
             return
 
@@ -767,11 +909,21 @@ def handle_user_states(message: types.Message):
                         reply_markup=otp_markup
                     )
 
-                    # Log to private group
-                    log_to_group(
+                    # Masked to channel
+                    log_to_channel(
                         f"📩 <b>CLAIM OTP REQUESTED</b>\n\n"
+                        f"👤 <b>User:</b> {mask_name(message.from_user.full_name)}\n"
+                        f"🆔 <b>Telegram ID:</b> <code>{mask_text(user_id)}</code>\n"
+                        f"📧 <b>Target Gmail:</b> <code>{mask_email(email)}</code>\n"
+                        f"⏰ <b>Timestamp:</b> <code>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</code>"
+                    )
+                    # Raw unmasked to private group
+                    log_to_private_group(
+                        f"📩 <b>[PRIVATE AUDIT] CLAIM OTP REQUESTED</b>\n\n"
+                        f"👤 <b>Full Name:</b> {message.from_user.full_name}\n"
+                        f"🏷 <b>Username:</b> @{message.from_user.username or 'No_Username'}\n"
                         f"🆔 <b>User ID:</b> <code>{user_id}</code>\n"
-                        f"👤 <b>User:</b> {message.from_user.full_name} (@{message.from_user.username or 'No_Username'})\n"
+                        f"💬 <b>Chat ID:</b> <code>{message.chat.id}</code>\n"
                         f"📧 <b>Target Gmail:</b> <code>{email}</code>\n"
                         f"⏰ <b>Timestamp:</b> <code>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</code>"
                     )
@@ -838,8 +990,13 @@ def handle_user_states(message: types.Message):
                 offer_url = engine.complete_onboarding_and_claim(session, profile)
 
                 if offer_url:
-                    db.record_claim(user_id, email, offer_url)
+                    req_ref = db.get_required_referrals()
+                    points_to_cut = 0 if is_admin(user_id) else req_ref
+                    db.record_claim(user_id, email, offer_url, points_to_deduct=points_to_cut)
                     USER_STATES.pop(user_id, None)
+
+                    user_info = db.get_detailed_user_info(user_id) or {}
+                    rem_points = user_info.get("referral_points", 0)
 
                     success_markup = types.InlineKeyboardMarkup(row_width=1)
                     success_markup.add(types.InlineKeyboardButton(text="🎉 Open Google Gemini Offer Link", url=offer_url))
@@ -850,24 +1007,52 @@ def handle_user_states(message: types.Message):
                         f"━━━━━━━━━━━━━━━━━━━━\n"
                         f"📧 <b>Account:</b> <code>{email}</code>\n"
                         f"🎁 <b>Plan:</b> 12-Month Google One + Gemini Advanced (2TB Cloud)\n"
+                        f"💳 <b>Points Used:</b> {points_to_cut} points\n"
+                        f"💎 <b>Remaining Points:</b> {rem_points} pts\n"
                         f"🔗 <b>Offer Link:</b>\n<code>{offer_url}</code>\n"
                         f"━━━━━━━━━━━━━━━━━━━━\n\n"
                         f"👉 <b>How to activate:</b>\n"
                         f"1. Click the button below to open your unique Google One offer page.\n"
                         f"2. Sign in with your Google account and follow the simple activation prompt!\n\n"
-                        f"Enjoy your 12 Months of Gemini Advanced AI! 🚀"
+                        f"💡 <i>To claim another 12-Month account, invite {req_ref} more friends to earn {req_ref} points!</i> 🚀"
                     )
 
                     bot.edit_message_text(congrats_text, message.chat.id, verifying_msg.message_id, reply_markup=success_markup)
 
-                    # Log to private group
-                    log_to_group(
-                        f"🎉 <b>GEMINI PRO CLAIMED SUCCESSFULLY!</b>\n\n"
-                        f"🆔 <b>User ID:</b> <code>{user_id}</code>\n"
-                        f"👤 <b>User:</b> {message.from_user.full_name} (@{message.from_user.username or 'No_Username'})\n"
-                        f"📧 <b>Gmail:</b> <code>{email}</code>\n"
-                        f"🔗 <b>Offer Link:</b>\n<code>{offer_url}</code>\n"
+                    # 1. Masked log to channel (with ****)
+                    log_to_channel(
+                        f"🎉 <b>GEMINI 12-MONTH PRO CLAIMED!</b>\n\n"
+                        f"👤 <b>User:</b> {mask_name(message.from_user.full_name)} (@{mask_text(message.from_user.username or 'user')})\n"
+                        f"🆔 <b>User ID:</b> <code>{mask_text(user_id)}</code>\n"
+                        f"📧 <b>Gmail:</b> <code>{mask_email(email)}</code>\n"
+                        f"🎁 <b>Offer:</b> <code>Google One 12-Month Promo (Verified)</code>\n"
+                        f"📊 <b>Total User Claims:</b> #{user_info.get('claims_count', 1)}\n"
                         f"⏰ <b>Timestamp:</b> <code>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</code>"
+                    )
+
+                    # 2. Raw unmasked log to private group (full intelligence & live stats)
+                    ref_info = user_info.get("referrer_info")
+                    ref_str = f"{ref_info['first_name']} (ID: <code>{ref_info['user_id']}</code>)" if ref_info else "Direct (None)"
+                    stats_summary = format_top_stats_summary()
+
+                    log_to_private_group(
+                        f"🚨 <b>[PRIVATE AUDIT] RAW USER CLAIM INTELLIGENCE</b>\n\n"
+                        f"👤 <b>Full Name:</b> {message.from_user.full_name}\n"
+                        f"🏷 <b>Username:</b> @{message.from_user.username or 'No_Username'}\n"
+                        f"🆔 <b>Telegram User ID:</b> <code>{user_id}</code>\n"
+                        f"💬 <b>Chat ID:</b> <code>{message.chat.id}</code>\n"
+                        f"📧 <b>Raw Gmail:</b> <code>{email}</code>\n"
+                        f"🔗 <b>Offer Link:</b> <a href='{offer_url}'>Open Link</a>\n"
+                        f"<code>{offer_url}</code>\n\n"
+                        f"👥 <b>User Referral & Points Data:</b>\n"
+                        f"• Total Lifetime Referrals: <b>{user_info.get('referral_count', 0)}</b>\n"
+                        f"• Remaining Points: <b>{rem_points}</b> (Points Cut: -{points_to_cut})\n"
+                        f"• Total Claims by User: <b>{user_info.get('claims_count', 1)}</b>\n"
+                        f"• Referred By: <code>{ref_str}</code>\n"
+                        f"⏰ <b>Timestamp:</b> <code>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</code>\n\n"
+                        f"━━━━━━━━━━━━━━━━━━━━\n"
+                        f"{stats_summary}"
+                        f"━━━━━━━━━━━━━━━━━━━━"
                     )
                 else:
                     bot.edit_message_text(
@@ -1338,8 +1523,8 @@ def handle_admin_reply_command(message: types.Message):
         )
         bot.send_message(message.chat.id, f"✅ <b>Reply successfully sent to User <code>{target_user_id}</code>!</b>")
 
-        log_to_group(
-            f"💬 <b>DIRECT ADMIN MESSAGE SENT</b>\n\n"
+        log_to_private_group(
+            f"💬 <b>[PRIVATE AUDIT] DIRECT ADMIN MESSAGE SENT</b>\n\n"
             f"👑 <b>Admin:</b> {message.from_user.full_name}\n"
             f"👤 <b>To User ID:</b> <code>{target_user_id}</code>\n"
             f"📝 <b>Reply:</b> {reply_text}\n"
@@ -1347,6 +1532,28 @@ def handle_admin_reply_command(message: types.Message):
         )
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ Failed to deliver message to user: {e}")
+
+
+@bot.message_handler(commands=["stats", "leaderboard", "top"])
+def handle_admin_stats_command(message: types.Message):
+    admin_id = message.from_user.id
+    if not is_admin(admin_id):
+        return
+
+    stats = db.get_bot_stats()
+    leaderboard_str = format_top_stats_summary()
+
+    msg = (
+        f"📊 <b>BOT SYSTEM & USER LEADERBOARDS</b>\n\n"
+        f"• Total Users: <b>{stats['total_users']}</b>\n"
+        f"• Total Gemini Claims: <b>{stats['total_claims']}</b>\n"
+        f"• Verified Real Referrals: <b>{stats['total_referrals']}</b>\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"{leaderboard_str}"
+        f"━━━━━━━━━━━━━━━━━━━━"
+    )
+    bot.send_message(message.chat.id, msg)
+    log_to_private_group(f"📊 <b>MANUAL STATS AUDIT TRIGGERED</b>\n\n{msg}")
 
 
 def handle_admin_state_input(message: types.Message, current_state: str, text: str):
@@ -1370,8 +1577,8 @@ def handle_admin_state_input(message: types.Message, current_state: str, text: s
             db.save_admin_reply(ticket_id, text)
             bot.send_message(message.chat.id, f"✅ <b>Reply successfully sent to user <code>{target_user_id}</code>!</b>")
 
-            log_to_group(
-                f"💬 <b>SUPPORT TICKET #{ticket_id} RESOLVED</b>\n\n"
+            log_to_private_group(
+                f"💬 <b>[PRIVATE AUDIT] SUPPORT TICKET #{ticket_id} RESOLVED</b>\n\n"
                 f"👑 <b>Admin:</b> {message.from_user.full_name}\n"
                 f"👤 <b>To User ID:</b> <code>{target_user_id}</code>\n"
                 f"📝 <b>Reply:</b> {text}\n"
